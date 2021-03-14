@@ -15,35 +15,59 @@ S_TO_T = 1e0
 PI = np.pi
 
 # Constants
-floor_length = 0.03*M_TO_L
+floor_length = 0.15*M_TO_L
+floor_width = 0.3*M_TO_L
 floor_thickness = 0.001*M_TO_L
 
+body_length = 0.015*M_TO_L
+body_width = 0.04*M_TO_L
+body_height = 0.012*M_TO_L
+
 beam_arc_length = 0.01*M_TO_L # Full angle of the curved beam
-beam_radius = 0.003*M_TO_L
-beam_angle = beam_arc_length/beam_radius 
+beam_radius = 0.004*M_TO_L
 beam_thickness = 0.0001*M_TO_L
-beam_length = 0.05*M_TO_L
+beam_length = 0.01*M_TO_L
+beam_start_angle = -PI/2
+beam_angle = beam_arc_length/beam_radius 
+beam_chord_length = np.sin(beam_angle/2)*beam_radius*2
+beam_chord_center_offset = np.cos(beam_angle/2)*beam_radius
 
-g = 0*M_TO_L/S_TO_T**2 # m/s^2
+slider_length = 0.01*M_TO_L
+slider_width = beam_radius-beam_chord_center_offset
+slider_height = beam_chord_length
 
-rho = 2700*KG_TO_W/(M_TO_L**3) # kg/m^3
-E = 2.0e11*KG_TO_W/M_TO_L/S_TO_T**2 # kg*m/s^2/m^2
+pusher_length = 0.01*M_TO_L
+pusher_width = beam_radius-beam_chord_center_offset
+pusher_height = beam_chord_length
+
+peg_radius = 0.001*M_TO_L
+peg_height = body_height
+peg_x = beam_length+body_length+slider_length+pusher_length-0.002*M_TO_L
+peg_dz = 0.02*M_TO_L
+peg_num = 13
+g = 9.81*M_TO_L/S_TO_T**2 # m/s^2
+
+# Polyester film
+rho = 1383*KG_TO_W/(M_TO_L**3) # kg/m^3
+E = 1.9e9*KG_TO_W/M_TO_L/S_TO_T**2 # kg*m/s^2/m^2
 nu = 0.3
 mb = 0.01
 
 # chrono.ChCollisionModel.SetDefaultSuggestedEnvelope(1e-2) # Adjust if units change
 # chrono.ChCollisionModel.SetDefaultSuggestedMargin(1e-3)
 
-# col_mat = chrono.ChMaterialSurfaceSMC()
-# Efloor = 2.0e9*KG_TO_W/M_TO_L/S_TO_T**2 # kg*m/s^2/m^2
-# col_mat.SetYoungModulus(Efloor)
-# col_mat.SetFriction(1.0)
+col_mat = chrono.ChMaterialSurfaceSMC()
+col_mat.SetYoungModulus(1.0e7*KG_TO_W/M_TO_L/S_TO_T**2)
+col_mat.SetFriction(0.4)
+# col_mat.SetRestitution(0.2)
+# col_mat.SetAdhesion(0)
 
-step = 1e-3*S_TO_T
-tfinal = 50*S_TO_T
+count = 10
+step = 5e-5*S_TO_T
+period = 1.5*S_TO_T
+tfinal = period*count
 
 deform = 0.02*M_TO_L
-cycle = 1
     
 # Helper functions
 def cast_node(nb):
@@ -51,35 +75,59 @@ def cast_node(nb):
     nodeFead = fea.CastToChNodeFEAxyzrot(feaNB)
     return nodeFead
 
+
 def experiment():
     # Chrono Simulation
     mysystem = chrono.ChSystemSMC()
     mysystem.Set_G_acc(chrono.ChVectorD(0,-g,0))
     
-    mground = chrono.ChBodyEasyBox(floor_thickness, floor_length, floor_length, 0)
-    mground.SetPos(chrono.ChVectorD(-floor_thickness/2,0,0))
-    mground.SetBodyFixed(True)
-    mysystem.Add(mground)
+    mfloor = chrono.ChBodyEasyBox(floor_length, floor_thickness, floor_width, 0, True, True, col_mat)
+    mfloor.SetPos(chrono.ChVectorD(0,-floor_thickness/2,floor_width/2-body_width))
+    mfloor.SetBodyFixed(True)
+    mysystem.Add(mfloor)
     
-    mslider = chrono.ChBodyEasyBox(floor_thickness, floor_length, floor_length, 0)
-    mslider.SetPos(chrono.ChVectorD(beam_length+floor_thickness/2,0,0))
-    # mslider.SetBodyFixed(True)
+    rho_body = 0.3*KG_TO_W/body_height/body_length/body_width
+    mbody = chrono.ChBodyEasyBox(body_length, body_height, body_width, rho_body, True, True, col_mat)
+    mbody.SetPos(chrono.ChVectorD(body_length/2,body_height/2,0))
+    # mbody.SetBodyFixed(True)
+    mysystem.Add(mbody)
+    
+    mslider = chrono.ChBodyEasyBox(slider_length, slider_height, slider_width, 0)
+    mslider.SetPos(chrono.ChVectorD(body_length+slider_length/2,body_height/2,slider_width/2))
     mysystem.Add(mslider)
     
+    mpusher = chrono.ChBodyEasyBox(pusher_length, pusher_height, pusher_width, 0, True, True, col_mat)
+    mpusher.SetPos(chrono.ChVectorD(body_length+slider_length+beam_length+pusher_length/2,body_height/2,pusher_width/2))
+    mysystem.Add(mpusher)
+    
+    mpegs = []
+    for i in range(-1,int(peg_num-1),1):
+        mpeg = chrono.ChBodyEasyCylinder(peg_radius, peg_height, 0, True, True, col_mat)
+        mpeg.SetPos(chrono.ChVectorD(peg_x,peg_height/2,peg_dz*i+pusher_width+peg_radius))
+        mpeg.SetBodyFixed(True)
+        mysystem.Add(mpeg)
+        
+        mpegs.append(mpeg)
+    
+    # Body can only move in yz plane
+    mjointA = chrono.ChLinkMateGeneric(True,False,False,True,True,True)
+    mjointA.Initialize(mbody,mfloor,chrono.ChFrameD(chrono.VNULL))
+    mysystem.Add(mjointA)
+    
+    # Motor between body and slider
     mmotor = chrono.ChLinkMotorLinearPosition()
     mmotor.Initialize(
         mslider,
-        mground,
-        chrono.ChFrameD(chrono.ChVectorD(0,0,0),chrono.Q_from_AngZ(PI/2))
+        mbody,
+        chrono.ChFrameD(chrono.ChVectorD(0,0,0),chrono.Q_from_AngY(-PI/2))
     )
-    # mmotor_position = MotorPosition()
-    mmotor_position = chrono.ChFunction_Sine(0,cycle/tfinal,deform)
+    mmotor_position = chrono.ChFunction_Sine(0,1/period,deform)
     mmotor.SetMotorFunction(mmotor_position)
     mysystem.Add(mmotor)
     
     mmesh = fea.ChMesh()
     
-    num_div_x = 25
+    num_div_x = 5
     num_div_y = 0
     num_div_z = 5
     
@@ -97,11 +145,15 @@ def experiment():
     # Nodes
     for i in range(num_nodes):
         # Position of node 
-        x = i%num_node_x*dx
-        t = (i//num_node_x)%num_node_z*dz+(PI-beam_angle)/2 # angle from positive x
-        r = (i//(num_node_x*num_node_z)*dy+beam_radius)
-        y = r*np.sin(t)
-        z = r*np.cos(t)
+        # offset to side of body
+        x = i%num_node_x*dx+body_length+slider_length
+        # angle from positive z with start offset
+        t = (i//num_node_x)%num_node_z*dz+(PI-beam_angle)/2+beam_start_angle 
+        r = i//(num_node_x*num_node_z)*dy+beam_radius
+        # offset so that chord center is at body center
+        y = r*np.sin(t)+body_height/2
+        # offset so that center of chord crosses origin
+        z = r*np.cos(t)-beam_chord_center_offset
         
         
         # If nodes added to element in CCW then -y
@@ -147,28 +199,42 @@ def experiment():
         # Position of node 
         x = i%num_node_x
         
+        # Fixe nodes to slider
         if x == 0: 
             node_root = cast_node(mmesh.GetNode(i))
-            # node_root.SetFixed(True)
             mjoint = chrono.ChLinkMateGeneric(True,True,True,True,True,True)
-            mjoint.Initialize(mground,node_root,node_root.Frame())
+            mjoint.Initialize(mslider,node_root,node_root.Frame())
             mysystem.Add(mjoint)
     
+        # Fix nodes to pusher
         if x == num_node_x-1: 
             node_end = cast_node(mmesh.GetNode(i))
-            # node_end.SetForce(chrono.ChVectorD(0,load,0))
-            mjoint = chrono.ChLinkMateGeneric(False,True,True,False,False,False)
-            mjoint.Initialize(mslider,node_end,node_end.Frame())
+            mjoint = chrono.ChLinkMateGeneric(True,True,True,True,True,True)
+            mjoint.Initialize(mpusher,node_end,node_end.Frame())
             mysystem.Add(mjoint)
     
     # Visuals
-    mground_color = chrono.ChColorAsset()
-    mground_color.SetColor(chrono.ChColor(0,1,0))
-    mground.AddAsset(mground_color)
+    mfloor_color = chrono.ChColorAsset()
+    mfloor_color.SetColor(chrono.ChColor(0,1,0))
+    mfloor.AddAsset(mfloor_color)
+    
+    mbody_color = chrono.ChColorAsset()
+    mbody_color.SetColor(chrono.ChColor(0,0,1))
+    mbody.AddAsset(mbody_color)
     
     mslider_color = chrono.ChColorAsset()
-    mslider_color.SetColor(chrono.ChColor(0,0,1))
+    mslider_color.SetColor(chrono.ChColor(1,0,0))
     mslider.AddAsset(mslider_color)
+    
+    mpusher_color = chrono.ChColorAsset()
+    mpusher_color.SetColor(chrono.ChColor(0,0,1))
+    mpusher.AddAsset(mpusher_color)
+    
+    
+    for mpeg in mpegs:
+        mpeg_color = chrono.ChColorAsset()
+        mpeg_color.SetColor(chrono.ChColor(1,0,0))
+        mpeg.AddAsset(mpeg_color)   
     
     vmeshA = fea.ChVisualizationFEAmesh(mmesh)
     vmeshA.SetFEMdataType(fea.ChVisualizationFEAmesh.E_PLOT_SURFACE)
@@ -192,11 +258,11 @@ def experiment():
     application = chronoirr.ChIrrApp(mysystem, "Curve beam", chronoirr.dimension2du(1024, 768))
     application.AddTypicalSky()
     application.AddTypicalLights()
-    application.AddTypicalCamera(chronoirr.vector3df(beam_length/2, 0, -floor_length*1.5),chronoirr.vector3df(beam_length/2, 0, 0))
+    application.AddTypicalCamera(chronoirr.vector3df(0, body_height*12.5, floor_width/2-body_width),chronoirr.vector3df(0, 0, floor_width/2-body_width))
     application.AssetBindAll()
     application.AssetUpdateAll()
     # application.SetShowInfos(True)
-    # application.SetVideoframeSaveInterval(int(1/step/25)) # 10 frame per unit time
+    # application.SetVideoframeSaveInterval(int(1/step/120)) # N frames per unit time
     # application.SetVideoframeSave(True)
     
     def drawSysFrame(scale=0.01*M_TO_L):
@@ -222,32 +288,30 @@ def experiment():
     application.SetTimestep(step)
     
     
-    y = []
-    f = []
-    while application.GetDevice().run():
-        y.append(mslider.GetPos().y/M_TO_L*1000)    
-        f.append(mmotor.GetMotorForce()/KG_TO_W/M_TO_L*S_TO_T**2)
+    t = []
+    z = []
+    while application.GetDevice().run():    
+        t.append(mysystem.GetChTime()/period)
+        z.append(mbody.GetPos().z/M_TO_L*1000)
         
         application.BeginScene()
         application.DrawAll()
         drawSysFrame()    
         application.DoStep()
         application.EndScene()
-        
+
         if mysystem.GetChTime() > tfinal: # in system seconds
               application.GetDevice().closeDevice()    
     
-    return y, f
+    return t, z
+
 
 plt.figure()
-for beam_arc_length, line in zip([0.01*M_TO_L],['-']):
-    for beam_radius, color in zip([0.004*M_TO_L,0.006*M_TO_L,0.008*M_TO_L,0.010*M_TO_L],['r','g','b','k']):
-        beam_angle = beam_arc_length/beam_radius 
-        
-        y, f = experiment()
-        plt.plot(y,f,line+color,label='{:.0f},{:.0f}'.format(beam_radius/M_TO_L*1000,beam_arc_length/M_TO_L*1000))
-
-plt.title('Force vs Deformation, Aluminum Curved Beam')        
-plt.ylabel('Force[N]')
-plt.xlabel('Deformation[mm]')
+plt.title('Distance vs Swing Count, Polyester Film Curved Beam')      
+for period in np.array([0.5])*S_TO_T:
+    tfinal = period*count
+    t, z = experiment()
+    plt.plot(t,z, label='{:.2f}Hz'.format(1/period))
+plt.ylabel('Distance[mm]')
+plt.xlabel('Count')
 plt.legend(loc='upper left')

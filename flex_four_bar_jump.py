@@ -304,8 +304,8 @@ application.AddTypicalCamera(chronoirr.vector3df(0, output_length*3, -link_width
 application.AssetBindAll()
 application.AssetUpdateAll()
 # application.SetShowInfos(True)
-application.SetVideoframeSaveInterval(int(1/step/10)) # 10 frame per unit time
-application.SetVideoframeSave(True)
+# application.SetVideoframeSaveInterval(int(1/step/10)) # 10 frame per unit time
+# application.SetVideoframeSave(True)
 
 def drawSysFrame(scale=0.01*M_TO_L):
     chronoirr.ChIrrTools().drawSegment(
