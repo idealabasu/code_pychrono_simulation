@@ -106,7 +106,7 @@ def experiment():
         Dx = 0
         Dy = np.sin(t)
         Dz = np.cos(t)
-
+        
         # If nodes added to element in CCW then -y
         node = fea.ChNodeFEAxyzD(
             chrono.ChVectorD(x,y,z),
@@ -137,7 +137,7 @@ def experiment():
             cast_node(mmesh.GetNode(nodeC)),
             cast_node(mmesh.GetNode(nodeD))
         )
-        element.SetDimensions(dx, dz)
+        element.SetDimensions(dx, beam_radius*np.sin(dz/2)*2)
         element.AddLayer(dy, 0*chrono.CH_C_DEG_TO_RAD, mat)
         
         element.SetAlphaDamp(mb)
@@ -197,7 +197,7 @@ def experiment():
     application.AssetBindAll()
     application.AssetUpdateAll()
     # application.SetShowInfos(True)
-    # application.SetVideoframeSaveInterval(int(1/step/25)) # 10 frame per unit time
+    # application.SetVideoframeSaveInterval(int(1/step/25)) # N frame per unit time
     # application.SetVideoframeSave(True)
     
     def drawSysFrame(scale=0.01*M_TO_L):
