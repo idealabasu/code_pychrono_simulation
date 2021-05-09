@@ -13,7 +13,7 @@ conda install -c projectchrono/label/develop pychrono
 - Chrono is unitless but follows SI standard. Adjust the unit system may improve the simulation.
 
 ### FEA
-- Constraint for fea node seems to only support `ChNodeFEAxyzrot`.
+- Use `ChLinkMate`, `ChLinkLock`, and `ChLinkMotor` to constrain or actuate FEA node `ChNodeFEAxyzrot`. There are also more link types under the [FEA module](https://api.projectchrono.org/group__fea__constraints.html).
 - If combining FEA and constraints, use `ChSolverPardisoMKL` solver and `ChTimestepperHHT` time stepper. Please also `SetStepControl(False)`.
 
 ### Collision
