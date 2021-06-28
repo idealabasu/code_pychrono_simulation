@@ -6,7 +6,7 @@ import pychrono.pardisomkl as mkl
 import numpy as np
 import matplotlib.pyplot as plt
 
-chrono.SetChronoDataPath('../../../miniconda3/pkgs/pychrono-6.0.0-py37_0/Library/data/')
+chrono.SetChronoDataPath('../../../miniconda3/pkgs/pychrono-6.0.0-py37_223/Library/data/')
 
 # Unit conversion
 M_TO_L = 1e2 # convert length unit
@@ -157,7 +157,7 @@ def experiment():
     
         if x == num_node_x-1: 
             node_end = cast_node(mmesh.GetNode(i))
-            mjoint = fea.ChLinkPointFrameGeneric(False,True,True)
+            mjoint = fea.ChLinkPointFrameGeneric(False,True,False) 
             mjoint.Initialize(node_end,mslider,node_end.GetPos())
             mysystem.Add(mjoint)
             
@@ -190,7 +190,7 @@ def experiment():
     hht_stepper.SetStepControl(False)
     mysystem.SetTimestepper(hht_stepper)
     
-    application = chronoirr.ChIrrApp(mysystem, "Curve beam", chronoirr.dimension2du(1024, 768))
+    application = chronoirr.ChIrrApp(mysystem, "Curve beam", chronoirr.dimension2du(1024, 768), chronoirr.VerticalDir_Y)
     application.AddTypicalSky()
     application.AddTypicalLights()
     application.AddTypicalCamera(chronoirr.vector3df(beam_length/2, 0, -floor_length*1.5),chronoirr.vector3df(beam_length/2, 0, 0))
@@ -199,26 +199,6 @@ def experiment():
     # application.SetShowInfos(True)
     # application.SetVideoframeSaveInterval(int(1/step/25)) # N frame per unit time
     # application.SetVideoframeSave(True)
-    
-    def drawSysFrame(scale=0.01*M_TO_L):
-        chronoirr.ChIrrTools().drawSegment(
-            application.GetVideoDriver(),
-            chrono.ChVectorD(0,0,0),
-            chrono.ChVectorD(scale,0,0),
-            chronoirr.SColor(1,255,0,0)
-        )
-        chronoirr.ChIrrTools().drawSegment(
-            application.GetVideoDriver(),
-            chrono.ChVectorD(0,0,0),
-            chrono.ChVectorD(0,scale,0),
-            chronoirr.SColor(1,0,255,0)
-        )
-        chronoirr.ChIrrTools().drawSegment(
-            application.GetVideoDriver(),
-            chrono.ChVectorD(0,0,0),
-            chrono.ChVectorD(0,0,scale),
-            chronoirr.SColor(1,0,0,255)
-        )    
     
     application.SetTimestep(step)
     
@@ -230,7 +210,11 @@ def experiment():
         
         application.BeginScene()
         application.DrawAll()
-        drawSysFrame()    
+        # Draw axis for scale and orientation
+        s = 0.01*M_TO_L
+        chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(s,0,0),chronoirr.SColor(1,255,0,0))
+        chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(0,s,0),chronoirr.SColor(1,0,255,0))
+        chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(0,0,s),chronoirr.SColor(1,0,0,255)) 
         application.DoStep()
         application.EndScene()
         
