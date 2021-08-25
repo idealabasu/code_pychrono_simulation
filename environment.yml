@@ -1,0 +1,8 @@
+name: chrono
+dependencies:
+  - python=3.8
+  - projectchrono/label/develop::pychrono
+  - pip
+  - pip:
+    - numpy
+    - matplotlib
