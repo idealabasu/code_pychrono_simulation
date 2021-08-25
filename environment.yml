@@ -2,6 +2,7 @@ name: chrono
 dependencies:
   - python=3.8
   - projectchrono/label/develop::pychrono
+  - mkl=2020.2 # Latest version may not work
   - pip
   - pip:
     - numpy
