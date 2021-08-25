@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import minimize
 import pychrono.pardisomkl as mkl
 
-chrono.SetChronoDataPath('../../../miniconda3/pkgs/pychrono-6.0.0-py37_0/Library/data/')
+chrono.SetChronoDataPath('./chrono_data/')
 
 M_TO_L = 1e2 # convert length unit
 KG_TO_W = 1e3 # convert weight unit
@@ -67,26 +67,26 @@ def fourbar_solver(pts):
     vcoupler = pts[2,:]-pts[1,:]
     voutput = pts[2,:]-pts[3,:] # Flip direction so initial constraint value is around 0
     vground = pts[3,:]-pts[0,:]
-    
+
     error = []
-    
+
     # Length
     error.append(vcrank.dot(vcrank)-crank_length**2)
     error.append(vcoupler.dot(vcoupler)-coupler_length**2)
     error.append(voutput.dot(voutput)-output_length**2)
     error.append(vground.dot(vground)-ground_length**2)
-    
+
     # Angle
     error.append(np.arctan2(vground[1],vground[0])+PI/4)
     error.append(np.arctan2(voutput[1],voutput[0]))
     # error.append(np.arctan2(vcrank[1],vcrank[0])) # Constraint crank angle can casuse the minimize to fail
-    
+
     # Starting point
     error.append(pts[0,0])
     error.append(pts[0,1])
-    
+
     error = np.array(error)
-    
+
     return error.dot(error)
 
 # fourbar_solver(x0)
@@ -109,8 +109,8 @@ mysystem.Set_G_acc(chrono.ChVectorD(0,-g,0))
 
 def link_center(p1,p2):
     return chrono.ChVectorD(
-        (p1[0]+p2[0])/2, 
-        (p1[1]+p2[1])/2, 
+        (p1[0]+p2[0])/2,
+        (p1[1]+p2[1])/2,
         0
     )
 
@@ -214,11 +214,11 @@ coupler_frame = chrono.ChFrameD(chrono.ChVectorD(pts[1,0],pts[1,1],0),chrono.Q_f
 
 # Nodes
 for i in range(num_nodes):
-    # Position of node 
+    # Position of node
     x = i%num_node_x*dx
     y = 0
     z = (i//num_node_x)%num_node_z*dz-offset_z
-    
+
     # If nodes added to element in CCW then -y
     node = fea.ChNodeFEAxyzrot(chrono.ChFrameD(
         coupler_frame*chrono.ChVectorD(x,y,z),
@@ -248,28 +248,28 @@ for i in range(num_elements):
                       CastNode(mmesh.GetNode(nodeC)),
                       CastNode(mmesh.GetNode(nodeD)))
     element.AddLayer(dy, 0*chrono.CH_C_DEG_TO_RAD, mat)
-    
+
     mmesh.AddElement(element)
 
 mysystem.Add(mmesh)
 
 for i in range(num_nodes):
-    # Position of node 
+    # Position of node
     x = i%num_node_x
-    
-    if x == 0: 
+
+    if x == 0:
         node_root = CastNode(mmesh.GetNode(i))
-        
+
         mjoint = chrono.ChLinkMateGeneric(True,True,True,True,True,False)
         mjoint.Initialize(mcrank,node_root,node_root.Frame())
         mysystem.Add(mjoint)
-        
-    if x == num_node_x-1: 
+
+    if x == num_node_x-1:
         node_root = CastNode(mmesh.GetNode(i))
         mjoint = chrono.ChLinkMateGeneric(True,True,True,True,True,False)
         mjoint.Initialize(moutput,node_root,node_root.Frame())
-        mysystem.Add(mjoint)        
-        
+        mysystem.Add(mjoint)
+
 
 # Visuals
 mcrank_color = chrono.ChColorAsset()
@@ -307,25 +307,11 @@ application.AssetUpdateAll()
 # application.SetVideoframeSaveInterval(int(1/step/10)) # 10 frame per unit time
 # application.SetVideoframeSave(True)
 
-def drawSysFrame(scale=0.01*M_TO_L):
-    chronoirr.ChIrrTools().drawSegment(
-        application.GetVideoDriver(),
-        chrono.ChVectorD(0,0,0),
-        chrono.ChVectorD(scale,0,0),
-        chronoirr.SColor(1,255,0,0)
-    )
-    chronoirr.ChIrrTools().drawSegment(
-        application.GetVideoDriver(),
-        chrono.ChVectorD(0,0,0),
-        chrono.ChVectorD(0,scale,0),
-        chronoirr.SColor(1,0,255,0)
-    )
-    chronoirr.ChIrrTools().drawSegment(
-        application.GetVideoDriver(),
-        chrono.ChVectorD(0,0,0),
-        chrono.ChVectorD(0,0,scale),
-        chronoirr.SColor(1,0,0,255)
-    )    
+def drawSysFrame(s=0.01*M_TO_L):
+    chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(s,0,0),chronoirr.SColor(1,255,0,0))
+    chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(0,s,0),chronoirr.SColor(1,0,255,0))
+    chronoirr.drawSegment(application.GetVideoDriver(),chrono.ChVectorD(0,0,0),chrono.ChVectorD(0,0,s),chronoirr.SColor(1,0,0,255))
+
 
 application.SetTimestep(step)
 
@@ -335,20 +321,20 @@ h = []
 d = []
 while application.GetDevice().run():
     # torque.append(mmotor.GetMotorTorque()/g) # Convert to g*cm for easier comparison
-    
-    t.append(mysystem.GetChTime())    
+
+    t.append(mysystem.GetChTime())
     theta.append(chrono.Q_to_Euler123(moutput.GetRot()).z)
     h.append(mbody.GetPos().y)
     d.append(mbody.GetPos().x)
 
     application.BeginScene()
     application.DrawAll()
-    drawSysFrame()    
+    drawSysFrame()
     application.DoStep()
     application.EndScene()
-    
+
     if mysystem.GetChTime() > 0.3*S_TO_T: # in system seconds
-          application.GetDevice().closeDevice()    
+          application.GetDevice().closeDevice()
 
 h = np.array(h)-h[0]
 d = -np.array(d)+d[0]
