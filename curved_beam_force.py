@@ -115,6 +115,8 @@ def experiment():
 
 
     # Elements
+    # https://api.projectchrono.org/manual_fea.html
+    # https://api.projectchrono.org/manual_fea_elements.html
     melasticity = fea.ChElasticityReissnerIsothropic(E, nu)
     mdamping = fea.ChDampingReissnerRayleigh(melasticity,mb)
     mat = fea.ChMaterialShellReissner(melasticity, None, mdamping)
